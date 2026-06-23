@@ -11,6 +11,8 @@ class Application:
 
         self.video_device = video_device
 
+        self.GRID_SIZE = 7
+
     def load_model(self):
         self.model = load_model(self.model_path, compile=False)
 
@@ -20,14 +22,14 @@ class Application:
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # конвертируем из BGR в RGB для подачи в модель
         image = cv2.resize(frame_rgb, (224, 224))
         image = np.expand_dims(image, axis=0)
-        pred = self.model.predict(image)
+        pred = self.model(image, training=False)
         return pred
 
-    def _draw_mask(self, frame, pred, grid):
+    def _draw_mask(self, frame, grid, thr=0.3):
         h, w = frame.shape[:2]
 
-        rows = 7
-        cols = 7
+        rows = self.GRID_SIZE
+        cols = self.GRID_SIZE
 
         cell_w = w // cols
         cell_h = h // rows
@@ -42,11 +44,11 @@ class Application:
             y = i * cell_h
             cv2.line(frame, (0, y), (w, y), (255, 255, 255), 1)
 
-        for y in range(7):
-            for x in range(7):
+        for y in range(self.GRID_SIZE):
+            for x in range(self.GRID_SIZE):
                 obj = grid[y, x, 6]
 
-                if obj > 0.3:
+                if obj > thr:
                     x1 = x * cell_w
                     y1 = y * cell_h
                     x2 = (x + 1) * cell_w
@@ -93,24 +95,24 @@ class Application:
 
         return boxes[keep]
 
-    def _draw_bboxes(self, frame, grid):
+    def _draw_bboxes(self, frame, grid, thr=0.3):
         h_img, w_img = frame.shape[:2]
 
         boxes = []
         scores = []
 
-        for y in range(7):
-            for x in range(7):
+        for y in range(self.GRID_SIZE):
+            for x in range(self.GRID_SIZE):
                 dx, dy, dw, dh, bg, hand, obj = grid[y, x]
 
-                if obj < 0.3:
+                if obj < thr:
                     continue
 
-                x_center = (x + 0.5 + dx) / 7
-                y_center = (y + 0.5 + dy) / 7
+                x_center = (x + 0.5 + dx) / self.GRID_SIZE
+                y_center = (y + 0.5 + dy) / self.GRID_SIZE
 
-                bw = np.exp(dw) / 7
-                bh = np.exp(dh) / 7
+                bw = np.exp(dw) / self.GRID_SIZE
+                bh = np.exp(dh) / self.GRID_SIZE
 
                 xmin = (x_center - bw / 2) * w_img
                 xmax = (x_center + bw / 2) * w_img
@@ -129,14 +131,15 @@ class Application:
 
         while True:
             ret, frame = cap.read()
-            frame = cv2.flip(frame, 1)
             if not ret:
                 break
 
-            pred = self._predict_bgr(frame)
-            grid = pred.reshape(7, 7, 7)
+            frame = cv2.flip(frame, 1)
 
-            self._draw_mask(frame, pred, grid)
+            pred = self._predict_bgr(frame)
+            grid = pred.reshape(self.GRID_SIZE, self.GRID_SIZE, self.GRID_SIZE)
+
+            self._draw_mask(frame, grid)
             self._draw_bboxes(frame, grid)
 
             cv2.imshow("Hand Detection", frame)

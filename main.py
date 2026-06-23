@@ -1,6 +1,6 @@
 
-
 from app import Application
+
 
 def main():
     model_path = "hand_detection.keras"
