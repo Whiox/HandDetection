@@ -14,7 +14,10 @@ class Application:
         self.GRID_SIZE = 7
 
     def load_model(self):
-        self.model = load_model(self.model_path, compile=False)
+        try:
+            self.model = load_model(self.model_path, compile=False)
+        except ValueError:
+            print("Model is not exists, download it via url https://drive.google.com/file/d/1WgPQN0OLoRTGF0AqwMnxZ_IJ3k0OTnoU/view?usp=sharing")
 
     def _predict_bgr(self, frame):
         if not self.model:
